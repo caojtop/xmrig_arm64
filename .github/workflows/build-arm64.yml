@@ -92,6 +92,28 @@ jobs:
           tar -czf xmrig-${TAG#v}-linux-static-arm64.tar.gz xmrig
           sha256sum xmrig-${TAG#v}-linux-static-arm64.tar.gz > SHA256SUMS
           echo "FILENAME=xmrig-${TAG#v}-linux-static-arm64.tar.gz" >> $GITHUB_ENV
+
+      # === 修复 tag 问题的关键步骤 ===
+      - name: Prepare for correct tag creation
+        if: steps.check.outputs.already_built == 'false'
+        env:
+          TAG: ${{ steps.latest.outputs.latest_tag }}
+        run: |
+          # 获取当前（官方仓库）的 commit hash
+          OFFICIAL_COMMIT=$(git rev-parse HEAD)
+          echo "Official commit hash for $TAG: $OFFICIAL_COMMIT"
+          
+          # 设置 git 配置
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          
+          # 在本地仓库中创建正确的 tag
+          git tag -f "$TAG" "$OFFICIAL_COMMIT"
+          
+          # 推送 tag 到你的仓库
+          # 注意：我们推送的是当前目录的代码，这正好是官方仓库的正确版本
+          git push --force https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git "$TAG"
+          echo "Tag $TAG has been force-updated to commit $OFFICIAL_COMMIT"
   
       - name: Create GitHub Release and Upload Artifact
         if: steps.check.outputs.already_built == 'false'
